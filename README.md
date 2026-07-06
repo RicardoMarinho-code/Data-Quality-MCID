@@ -45,10 +45,11 @@ Saida: resumo no console + `relatorio_qualidade.csv` detalhado
 ├── main.py                  # ponto de entrada (CLI + resumo)
 ├── .env / .env.example      # nome da planilha e parametros
 ├── requirements.txt
-├── R01 - soma_val_contratado_total.py   # uma funcao regra_N(df) por arquivo
-├── R02 - distrato_exige_quantidade.py
-├── ...                                  # (ver tabela de Regras abaixo)
-├── R12 - quantidade_de_vigentes.py
+├── regras_R/                # uma funcao regra_N(df) por arquivo
+│   ├── R01 - soma_val_contratado_total.py
+│   ├── R02 - distrato_exige_quantidade.py
+│   ├── ...                  # (ver tabela de Regras abaixo)
+│   └── R12 - quantidade_de_vigentes.py
 └── qualidade/
     ├── config.py            # le o .env e nomes de colunas
     ├── io_dados.py          # leitura do CSV / gravacao do relatorio
@@ -84,7 +85,7 @@ marcada como `Sucesso` ou `Insucesso` por linha.
 
 ## Como adicionar uma nova regra
 
-1. Crie um arquivo `RNN - descricao.py` com uma funcao `regra_N(df)` que
+1. Crie um arquivo `regras_R/RNN - descricao.py` com uma funcao `regra_N(df)` que
    recebe o `DataFrame` e devolve uma copia com a coluna
    `Resultado_Teste_Regra_N` (`Sucesso` / `Insucesso`).
 2. Siga o padrao dos arquivos existentes para conversao de numeros (BR) e datas.
