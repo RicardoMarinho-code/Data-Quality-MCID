@@ -16,6 +16,7 @@ import pandas as pd
 
 from qualidade import config
 from qualidade.regras import REGRAS as REGRAS_QUALIDADE
+from qualidade.utils import normalizar_data_br, normalizar_numero_br
 from regras_R import REGRAS_R
 
 SAIDA = "relatorio_consolidado.csv"
@@ -25,25 +26,37 @@ def carregar_df(arquivo):
     """Le a base de dados como texto (as regras fazem a propria conversao).
 
     Aceita CSV (formato canonico: ';' + UTF-8 com BOM) ou Excel (.xlsx/.xls),
-    conforme a extensao. Le tudo como string para as regras aplicarem sua
-    limpeza numerica no formato brasileiro.
+    conforme a extensao ou assinatura do arquivo. Le tudo como string para
+    as regras aplicarem sua limpeza numerica no formato brasileiro.
     """
+    is_excel = False
+    try:
+        with open(arquivo, "rb") as f:
+            header = f.read(8)
+            is_excel = header.startswith(b"PK\x03\x04") or header.startswith(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1")
+    except Exception:
+        pass
+
     ext = os.path.splitext(arquivo)[1].lower()
-    if ext in (".xlsx", ".xls"):
+    if is_excel or ext in (".xlsx", ".xls"):
+
         df = pd.read_excel(arquivo, dtype=str, keep_default_na=False)
+        for c in df.columns:
+            df[c] = df[c].map(normalizar_numero_br).map(normalizar_data_br)
     else:
-        df = pd.read_csv(
-            arquivo,
+
+        leitura = dict(
             sep=config.DELIMITADOR,
             dtype=str,
-            encoding="utf-8-sig",
             keep_default_na=False,
         )
-    # As regras indexam colunas pelo nome exato; alinhamos com o io_dados,
-    # que remove espacos nas pontas dos cabecalhos.
+        try:
+            df = pd.read_csv(arquivo, encoding="utf-8-sig", **leitura)
+        except UnicodeDecodeError:
+            df = pd.read_csv(arquivo, encoding="latin-1", **leitura)
+
     df.columns = df.columns.str.strip()
 
-    # Guarda amigavel: as regras esperam a base MCMV-OGU (colunas mcmv_ogu_*).
     if not any(str(c).startswith("mcmv_ogu_") for c in df.columns):
         raise ValueError(
             f"O arquivo '{arquivo}' nao parece ser a base MCMV-OGU: nenhuma "
@@ -78,7 +91,7 @@ def aplicar_qualidade(df):
             verificar.__module__.split(".")[-1],
         )
         ocorrencias = verificar(linhas, colunas)
-        # Ocorrencia.linha e a linha no arquivo (i + 2); volta para a posicao no df.
+
         posicoes_ruins = {o.linha - 2 for o in ocorrencias}
         df[f"Resultado_{nome}"] = [
             "Insucesso" if i in posicoes_ruins else "Sucesso"
@@ -93,7 +106,6 @@ def executar(arquivo=None):
 
     df = carregar_df(arquivo)
 
-    # Cada regra_N faz df.copy() e acrescenta a(s) coluna(s); encadear acumula.
     for _rotulo, regra in REGRAS_R:
         df = regra(df)
 
